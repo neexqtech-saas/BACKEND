@@ -1,0 +1,60 @@
+env
+# Ignore all __pycache__ folders
+__pycache__/
+*/__pycache__/
+**/__pycache__/
+
+# Ignore all .pyc files
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.sqlite3
+*.db
+*.sqlite
+
+# ============================================
+# Migration Files - Strict Ignore
+# Server pe manually migrate karna hai
+# ============================================
+# Ignore ALL migration files except __init__.py
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Explicit patterns for all migration file types
+**/migrations/0*.py
+**/migrations/1*.py
+**/migrations/2*.py
+**/migrations/3*.py
+**/migrations/4*.py
+**/migrations/5*.py
+**/migrations/6*.py
+**/migrations/7*.py
+**/migrations/8*.py
+**/migrations/9*.py
+**/migrations/*_initial.py
+**/migrations/*_auto_*.py
+**/migrations/*_squashed_*.py
+
+# Ignore migration pyc files
+**/migrations/__pycache__/
+**/migrations/*.pyc
+
+# Core app specific migrations
+core/**/migrations/*.py
+!core/**/migrations/__init__.py
+
+
+# Python virtual env / env vars
+env/
+.env
+
+# Optional safety
+__pycache__/
+*.pyc

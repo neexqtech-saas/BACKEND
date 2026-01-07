@@ -1,0 +1,320 @@
+# ==================== EMPLOYEE BANK INFO VIEWS ====================
+
+class EmployeeBankInfoAPIView(APIView):
+    """
+    Unified CRUD API View for Employee Bank Information
+    URL patterns:
+    - prefix/<admin_id>              → GET (list), POST
+    - prefix/<admin_id>/<int:pk>     → GET (detail), PUT, DELETE
+    """
+    
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request, admin_id, pk=None):
+        """
+        GET - List all bank info for employees under admin or get single bank info
+        
+        Query parameters:
+        - search: Search in employee_name, custom_employee_id, bank_name, account_number, ifsc_code, pan_card_number, aadhar_card_number
+        - page: Page number (default: 1)
+        - page_size: Items per page (default: 10, max: 100)
+        - is_active: Filter by active status (true/false)
+        - is_primary: Filter by primary status (true/false)
+        """
+        try:
+            # Validate admin
+            admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+            
+            if pk:
+                # Get single bank info
+                try:
+                    bank_info = EmployeeBankInfo.objects.select_related(
+                        'employee', 'employee__own_user_profile'
+                    ).get(id=pk, employee__own_user_profile__admin=admin)
+                    
+                    serializer = EmployeeBankInfoSerializer(bank_info)
+                    return Response({
+                        "status": True,
+                        "message": "Bank information fetched successfully",
+                        "data": serializer.data
+                    }, status=status.HTTP_200_OK)
+                    
+                except EmployeeBankInfo.DoesNotExist:
+                    return Response({
+                        "status": False,
+                        "message": "Bank information not found",
+                        "data": None
+                    }, status=status.HTTP_404_NOT_FOUND)
+            else:
+                # Get all bank info for employees under this admin
+                # Base queryset - employees under this admin
+                employees_under_admin = BaseUserModel.objects.filter(
+                    role='user',
+                    own_user_profile__admin=admin
+                ).values_list('id', flat=True)
+                
+                queryset = EmployeeBankInfo.objects.filter(
+                    employee_id__in=employees_under_admin
+                ).select_related('employee', 'employee__own_user_profile').order_by('-created_at')
+                
+                # Filter by is_active
+                is_active_param = request.query_params.get('is_active')
+                if is_active_param is not None:
+                    is_active = is_active_param.lower() == 'true'
+                    queryset = queryset.filter(is_active=is_active)
+                
+                # Filter by is_primary
+                is_primary_param = request.query_params.get('is_primary')
+                if is_primary_param is not None:
+                    is_primary = is_primary_param.lower() == 'true'
+                    queryset = queryset.filter(is_primary=is_primary)
+                
+                # Search filter
+                search_query = request.query_params.get('search', '').strip()
+                if search_query:
+                    from django.db.models import Q
+                    queryset = queryset.filter(
+                        Q(employee__own_user_profile__user_name__icontains=search_query) |
+                        Q(employee__own_user_profile__custom_employee_id__icontains=search_query) |
+                        Q(bank_name__icontains=search_query) |
+                        Q(account_number__icontains=search_query) |
+                        Q(ifsc_code__icontains=search_query) |
+                        Q(pan_card_number__icontains=search_query) |
+                        Q(aadhar_card_number__icontains=search_query) |
+                        Q(account_holder_name__icontains=search_query) |
+                        Q(branch_name__icontains=search_query) |
+                        Q(city__icontains=search_query) |
+                        Q(state__icontains=search_query)
+                    )
+                
+                # Pagination
+                page = request.query_params.get('page', '1')
+                page_size = request.query_params.get('page_size', '10')
+                
+                try:
+                    page = int(page)
+                    page_size = int(page_size)
+                    if page < 1:
+                        page = 1
+                    if page_size < 1:
+                        page_size = 10
+                    if page_size > 100:
+                        page_size = 100
+                except ValueError:
+                    page = 1
+                    page_size = 10
+                
+                # Calculate pagination
+                total_count = queryset.count()
+                total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 0
+                
+                # Slice queryset
+                start_index = (page - 1) * page_size
+                end_index = start_index + page_size
+                paginated_queryset = queryset[start_index:end_index]
+                
+                # Serialize
+                serializer = EmployeeBankInfoListSerializer(paginated_queryset, many=True)
+                
+                return Response({
+                    "status": True,
+                    "message": "Bank information list fetched successfully",
+                    "data": {
+                        "results": serializer.data,
+                        "pagination": {
+                            "current_page": page,
+                            "page_size": page_size,
+                            "total_count": total_count,
+                            "total_pages": total_pages,
+                            "has_next": page < total_pages,
+                            "has_previous": page > 1
+                        }
+                    }
+                }, status=status.HTTP_200_OK)
+                
+        except BaseUserModel.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": "Admin not found",
+                "data": None
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error fetching bank information: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def post(self, request, admin_id):
+        """
+        POST - Create new bank information for an employee
+        Request body should include employee_id and all bank info fields
+        """
+        try:
+            # Validate admin
+            admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+            
+            serializer = EmployeeBankInfoCreateSerializer(data=request.data)
+            if serializer.is_valid():
+                # Verify employee belongs to this admin
+                employee_id = serializer.validated_data.get('employee_id')
+                try:
+                    employee = BaseUserModel.objects.select_related('own_user_profile').get(
+                        id=employee_id,
+                        role='user',
+                        own_user_profile__admin=admin
+                    )
+                except BaseUserModel.DoesNotExist:
+                    return Response({
+                        "status": False,
+                        "message": "Employee not found or does not belong to this admin",
+                        "data": None
+                    }, status=status.HTTP_404_NOT_FOUND)
+                
+                # Check if bank info already exists for this employee
+                if EmployeeBankInfo.objects.filter(employee_id=employee_id).exists():
+                    return Response({
+                        "status": False,
+                        "message": "Bank information already exists for this employee. Use PUT to update.",
+                        "data": None
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Create bank info
+                bank_info = serializer.save()
+                
+                # Return created bank info
+                response_serializer = EmployeeBankInfoSerializer(bank_info)
+                return Response({
+                    "status": True,
+                    "message": "Bank information created successfully",
+                    "data": response_serializer.data
+                }, status=status.HTTP_201_CREATED)
+            else:
+                return Response({
+                    "status": False,
+                    "message": "Validation error",
+                    "data": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except BaseUserModel.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": "Admin not found",
+                "data": None
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error creating bank information: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def put(self, request, admin_id, pk=None):
+        """
+        PUT - Update existing bank information
+        Requires pk in URL
+        """
+        try:
+            if not pk:
+                return Response({
+                    "status": False,
+                    "message": "Bank info ID (pk) is required for update",
+                    "data": None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate admin
+            admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+            
+            # Get bank info
+            try:
+                bank_info = EmployeeBankInfo.objects.select_related(
+                    'employee', 'employee__own_user_profile'
+                ).get(id=pk, employee__own_user_profile__admin=admin)
+            except EmployeeBankInfo.DoesNotExist:
+                return Response({
+                    "status": False,
+                    "message": "Bank information not found",
+                    "data": None
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Update
+            serializer = EmployeeBankInfoUpdateSerializer(bank_info, data=request.data, partial=False)
+            if serializer.is_valid():
+                updated_bank_info = serializer.save()
+                
+                # Return updated bank info
+                response_serializer = EmployeeBankInfoSerializer(updated_bank_info)
+                return Response({
+                    "status": True,
+                    "message": "Bank information updated successfully",
+                    "data": response_serializer.data
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    "status": False,
+                    "message": "Validation error",
+                    "data": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except BaseUserModel.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": "Admin not found",
+                "data": None
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error updating bank information: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def delete(self, request, admin_id, pk=None):
+        """
+        DELETE - Delete bank information
+        Requires pk in URL
+        """
+        try:
+            if not pk:
+                return Response({
+                    "status": False,
+                    "message": "Bank info ID (pk) is required for deletion",
+                    "data": None
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Validate admin
+            admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+            
+            # Get bank info
+            try:
+                bank_info = EmployeeBankInfo.objects.select_related(
+                    'employee', 'employee__own_user_profile'
+                ).get(id=pk, employee__own_user_profile__admin=admin)
+            except EmployeeBankInfo.DoesNotExist:
+                return Response({
+                    "status": False,
+                    "message": "Bank information not found",
+                    "data": None
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Delete
+            bank_info.delete()
+            
+            return Response({
+                "status": True,
+                "message": "Bank information deleted successfully",
+                "data": None
+            }, status=status.HTTP_200_OK)
+            
+        except BaseUserModel.DoesNotExist:
+            return Response({
+                "status": False,
+                "message": "Admin not found",
+                "data": None
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                "status": False,
+                "message": f"Error deleting bank information: {str(e)}",
+                "data": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

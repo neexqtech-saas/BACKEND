@@ -1,0 +1,150 @@
+# ============================================
+# SAAS-PROJECT-T Backend Requirements
+# ============================================
+# Python Version: 3.8+
+# ============================================
+
+# ============================================
+# Core Django Framework
+# ============================================
+Django==5.2.8
+asgiref==3.11.0
+sqlparse==0.5.3
+tzdata==2025.2
+
+# ============================================
+# Django REST Framework
+# ============================================
+djangorestframework==3.16.1
+djangorestframework-simplejwt==5.5.1
+PyJWT==2.10.1
+
+# ============================================
+# CORS & Security
+# ============================================
+django-cors-headers==4.9.0
+
+# ============================================
+# PostgreSQL Database
+# ============================================
+psycopg2-binary==2.9.9
+
+# ============================================
+# Environment Variables
+# ============================================
+python-decouple==3.8
+
+# ============================================
+# Celery (Background Tasks)
+# ============================================
+celery==5.5.3
+kombu==5.5.4
+vine==5.1.0
+billiard==4.2.3
+amqp==5.3.1
+
+# ============================================
+# Redis (Cache & Celery Broker)
+# ============================================
+redis==5.0.1
+
+# ============================================
+# Excel File Handling
+# ============================================
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+
+# ============================================
+# Image Processing
+# ============================================
+Pillow==12.0.0
+
+# ============================================
+# Utilities
+# ============================================
+python-dateutil==2.9.0.post0
+PyYAML==6.0.3
+
+# ============================================
+# Optional: OCR (for Contact Management Business Card Extraction)
+# ============================================
+# WARNING: These packages are VERY LARGE (~3GB+ total):
+# - torch + torchvision: ~2GB
+# - easyocr dependencies: ~1GB
+# 
+# OCR functionality will gracefully degrade if not installed.
+# Uncomment only if you need business card OCR extraction.
+#
+# Option 1: EasyOCR (no external software needed, but large packages)
+# easyocr==1.7.2
+# torch==2.9.1
+# torchvision==0.24.1
+# numpy==2.2.6
+# opencv-python-headless==4.12.0.88
+# scikit-image==0.25.2
+# scipy==1.16.3
+# networkx==3.6
+# shapely==2.1.2
+# pyclipper==1.4.0
+# python-bidi==0.6.7
+# ImageIO==2.37.2
+# tifffile==2025.10.16
+# lazy_loader==0.4
+# fsspec==2025.12.0
+# sympy==1.14.0
+# mpmath==1.3.0
+#
+# Option 2: Tesseract (requires Tesseract OCR software installation)
+# pytesseract==0.3.13
+
+# ============================================
+# Optional: Redis Cache Backend
+# ============================================
+# Uncomment if you want to use django-redis for caching
+# (Currently using fallback to local memory cache)
+# django-redis==5.4.0
+
+# ============================================
+# Development Dependencies (Optional)
+# ============================================
+# Uncomment for development:
+# ipython==8.12.0
+# django-debug-toolbar==4.2.0
+# pytest==7.4.0
+# pytest-django==4.5.2
+
+# ============================================
+# Installation Instructions
+# ============================================
+# 1. Create virtual environment:
+#    python -m venv env
+#
+# 2. Activate virtual environment:
+#    Windows: env\Scripts\activate
+#    Linux/Mac: source env/bin/activate
+#
+# 3. Install requirements:
+#    pip install -r requirements.txt
+#
+# 4. For OCR functionality (if using Tesseract):
+#    - Install Tesseract OCR software separately
+#    - Windows: Download from https://github.com/tesseract-ocr/tesseract
+#    - Linux: sudo apt-get install tesseract-ocr
+#    - Mac: brew install tesseract
+#
+# 5. Run migrations:
+#    python manage.py makemigrations
+#    python manage.py migrate
+#
+# 6. Start Celery worker (if using background tasks):
+#    celery -A core worker -l info
+#
+# 7. Start Celery beat (for scheduled tasks):
+#    celery -A core beat -l info
+#
+# 8. Start Redis (required for Celery):
+#    Windows: Download and run Redis
+#    Linux: sudo systemctl start redis
+#    Mac: brew services start redis
+# ============================================
+
