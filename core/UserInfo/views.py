@@ -58,9 +58,10 @@ def get_admin_and_site_optimized(request, site_id):
                 "data": []
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Single O(1) query with select_related to avoid N+1 - uses index on (id, role)
+        # Single O(1) query to avoid N+1 - uses index on (id, role)
+        # Don't use select_related with only() when not accessing the related field
         try:
-            admin = BaseUserModel.objects.select_related('own_admin_profile').only(
+            admin = BaseUserModel.objects.only(
                 'id', 'role', 'email'
             ).get(id=admin_id, role='admin')
         except BaseUserModel.DoesNotExist:
@@ -275,7 +276,7 @@ class StaffListByAdmin(APIView):
                 
                 # Validate admin exists and belongs to organization - O(1) query
                 try:
-                    admin = BaseUserModel.objects.select_related('own_admin_profile').only(
+                    admin = BaseUserModel.objects.only(
                         'id', 'role', 'email'
                     ).get(id=admin_id, role='admin')
                     

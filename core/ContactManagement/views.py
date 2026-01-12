@@ -64,7 +64,7 @@ def get_admin_and_site_optimized(request, site_id):
         
         # Single O(1) query with select_related to avoid N+1 - uses index on (id, role)
         try:
-            admin = BaseUserModel.objects.select_related('own_admin_profile').only(
+            admin = BaseUserModel.objects.only(
                 'id', 'role', 'email'
             ).get(id=admin_id, role='admin')
         except BaseUserModel.DoesNotExist:

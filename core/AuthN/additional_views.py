@@ -327,7 +327,8 @@ class OrganizationOwnAdminsAPIView(APIView):
             search = request.query_params.get("q", "")
             status_filter = request.query_params.get("status")
             
-            queryset = AdminProfile.objects.filter(organization=org_user)
+            # Use select_related to eagerly load user to avoid N+1 queries
+            queryset = AdminProfile.objects.select_related('user', 'organization').filter(organization=org_user)
             
             # Search
             if search:
@@ -473,8 +474,21 @@ class AdminDetailsAPIView(APIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
                 # Validate admin exists and belongs to organization
+                # admin_id could be either BaseUserModel.id (user ID) or AdminProfile.id
                 try:
-                    admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+                    # First try as BaseUserModel (user) ID
+                    try:
+                        admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+                    except BaseUserModel.DoesNotExist:
+                        # If not found, try as AdminProfile ID
+                        admin_profile_temp = AdminProfile.objects.select_related('user').filter(
+                            id=admin_id,
+                            organization=request.user
+                        ).first()
+                        if admin_profile_temp:
+                            admin = admin_profile_temp.user
+                        else:
+                            raise BaseUserModel.DoesNotExist("Admin not found")
                     # Verify admin belongs to organization
                     admin_profile_check = AdminProfile.objects.filter(
                         user=admin,
@@ -486,7 +500,7 @@ class AdminDetailsAPIView(APIView):
                             "message": "Admin does not belong to your organization",
                             "data": {}
                         }, status=status.HTTP_403_FORBIDDEN)
-                except BaseUserModel.DoesNotExist:
+                except (BaseUserModel.DoesNotExist, ValueError):
                     return Response({
                         "status": status.HTTP_404_NOT_FOUND,
                         "message": "Admin not found",
@@ -534,8 +548,21 @@ class AdminDetailsAPIView(APIView):
                     }, status=status.HTTP_400_BAD_REQUEST)
                 
                 # Validate admin exists and belongs to organization
+                # admin_id could be either BaseUserModel.id (user ID) or AdminProfile.id
                 try:
-                    admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+                    # First try as BaseUserModel (user) ID
+                    try:
+                        admin = BaseUserModel.objects.get(id=admin_id, role='admin')
+                    except BaseUserModel.DoesNotExist:
+                        # If not found, try as AdminProfile ID
+                        admin_profile_temp = AdminProfile.objects.select_related('user').filter(
+                            id=admin_id,
+                            organization=request.user
+                        ).first()
+                        if admin_profile_temp:
+                            admin = admin_profile_temp.user
+                        else:
+                            raise BaseUserModel.DoesNotExist("Admin not found")
                     # Verify admin belongs to organization
                     admin_profile_check = AdminProfile.objects.filter(
                         user=admin,
@@ -547,7 +574,7 @@ class AdminDetailsAPIView(APIView):
                             "message": "Admin does not belong to your organization",
                             "data": {}
                         }, status=status.HTTP_403_FORBIDDEN)
-                except BaseUserModel.DoesNotExist:
+                except (BaseUserModel.DoesNotExist, ValueError):
                     return Response({
                         "status": status.HTTP_404_NOT_FOUND,
                         "message": "Admin not found",
@@ -902,7 +929,7 @@ class EmployeeProfileUpdateAPIView(APIView):
                             "message": "Admin does not belong to your organization",
                             "data": {}
                         }, status=status.HTTP_403_FORBIDDEN)
-                except BaseUserModel.DoesNotExist:
+                except (BaseUserModel.DoesNotExist, ValueError):
                     return Response({
                         "status": status.HTTP_404_NOT_FOUND,
                         "message": "Admin not found",

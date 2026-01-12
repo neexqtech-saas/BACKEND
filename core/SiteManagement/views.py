@@ -44,7 +44,12 @@ class SiteAPIView(APIView):
             # If site_id is provided, return specific site details
             if site_id:
                 # O(1) query using index site_id_admin_idx (id, created_by_admin)
-                site = Site.objects.select_related('organization', 'created_by_admin').filter(
+                # Include created_by_admin__own_admin_profile for serializer access
+                site = Site.objects.select_related(
+                    'organization', 
+                    'created_by_admin',
+                    'created_by_admin__own_admin_profile'
+                ).filter(
                     id=site_id, 
                     created_by_admin=admin
                 ).only(
@@ -68,10 +73,15 @@ class SiteAPIView(APIView):
                 }, status=status.HTTP_200_OK)
             
             # Otherwise, return all sites for admin - O(1) query using index site_admin_active_idx
+            # Include created_by_admin__own_admin_profile for serializer access
             sites = Site.objects.filter(
                 created_by_admin=admin, 
                 is_active=True
-            ).select_related('organization', 'created_by_admin').only(
+            ).select_related(
+                'organization', 
+                'created_by_admin',
+                'created_by_admin__own_admin_profile'
+            ).only(
                 'id', 'organization_id', 'created_by_admin_id', 'site_name', 
                 'address', 'city', 'state', 'pincode', 'contact_person', 
                 'contact_number', 'description', 'is_active', 'created_at', 'updated_at'
@@ -349,13 +359,16 @@ class EmployeeAssignmentAPIView(APIView):
                 
                 admin_summary = []
                 for item in admin_summary_data:
-                    admin_obj = BaseUserModel.objects.select_related('own_admin_profile').only(
-                        'id', 'email'
-                    ).get(id=item['admin_id'])
+                    # Fetch admin without select_related first to avoid deferral conflict
+                    admin_obj = BaseUserModel.objects.only('id', 'email').get(id=item['admin_id'])
                     
+                    # Then fetch admin_profile separately if needed
                     admin_name = None
-                    if hasattr(admin_obj, 'own_admin_profile'):
-                        admin_name = admin_obj.own_admin_profile.admin_name
+                    try:
+                        admin_profile = AdminProfile.objects.only('admin_name').get(user=admin_obj)
+                        admin_name = admin_profile.admin_name
+                    except AdminProfile.DoesNotExist:
+                        pass
                     
                     admin_summary.append({
                         'admin_id': str(item['admin_id']),
@@ -858,7 +871,8 @@ class AdminSitesListAPIView(APIView):
                 if admin_id:
                     # If admin_id provided, validate and get sites for that admin
                     try:
-                        admin_user = BaseUserModel.objects.select_related('own_admin_profile').only(
+                        # Don't use select_related with only() as it causes conflicts
+                        admin_user = BaseUserModel.objects.only(
                             'id', 'role', 'email'
                         ).get(id=admin_id, role='admin')
                         
@@ -898,10 +912,15 @@ class AdminSitesListAPIView(APIView):
                         }, status=status.HTTP_200_OK)
                     
                     # Get all sites for all admins under this organization - O(1) query
+                    # Include created_by_admin__own_admin_profile for serializer access
                     sites = Site.objects.filter(
                         created_by_admin_id__in=admin_user_ids,
                         is_active=True
-                    ).select_related('organization', 'created_by_admin').only(
+                    ).select_related(
+                        'organization', 
+                        'created_by_admin',
+                        'created_by_admin__own_admin_profile'
+                    ).only(
                         'id', 'organization_id', 'created_by_admin_id', 'site_name', 
                         'address', 'city', 'state', 'pincode', 'contact_person', 
                         'contact_number', 'description', 'is_active', 'created_at', 'updated_at'
@@ -930,7 +949,12 @@ class AdminSitesListAPIView(APIView):
             if site_id:
                 sites = sites.filter(id=site_id)
             
-            sites = sites.select_related('organization', 'created_by_admin').only(
+            # Include created_by_admin__own_admin_profile in select_related for serializer access
+            sites = sites.select_related(
+                'organization', 
+                'created_by_admin', 
+                'created_by_admin__own_admin_profile'
+            ).only(
                 'id', 'organization_id', 'created_by_admin_id', 'site_name', 
                 'address', 'city', 'state', 'pincode', 'contact_person', 
                 'contact_number', 'description', 'is_active', 'created_at', 'updated_at'

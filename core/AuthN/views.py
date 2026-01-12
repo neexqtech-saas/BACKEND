@@ -73,10 +73,11 @@ def validate_admin_for_organization(request, admin_id):
             }
         }, status=status.HTTP_400_BAD_REQUEST)
     
-    # O(1) query - Single query with select_related to avoid N+1
+    # O(1) query - Single query to avoid N+1
     # Uses index on (id, role) if exists, else primary key
+    # Don't use select_related with only() when not accessing the related field
     try:
-        admin_user = BaseUserModel.objects.select_related('own_admin_profile').only(
+        admin_user = BaseUserModel.objects.only(
             'id', 'role', 'email'
         ).get(id=admin_id, role='admin')
     except BaseUserModel.DoesNotExist:
