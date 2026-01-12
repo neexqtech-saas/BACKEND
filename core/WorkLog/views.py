@@ -410,7 +410,7 @@ class FetchEmployeeAttendanceAPIView(APIView):
                 # Get employee profile - O(1) query with select_related
                 all_employees = UserProfile.objects.filter(
                     user_id=user_id
-                ).select_related("user", "user__own_user_profile").only(
+                ).select_related("user").only(
                     'id', 'user_id', 'organization_id', 'user_name', 'custom_employee_id',
                     'designation', 'job_title', 'gender', 'date_of_joining', 
                     'state', 'city', 'user__email', 'user__is_active'
@@ -438,7 +438,7 @@ class FetchEmployeeAttendanceAPIView(APIView):
                     # Get employee profiles - O(1) query with select_related
                     all_employees = UserProfile.objects.filter(
                         user_id__in=employee_ids
-                    ).select_related("user", "user__own_user_profile").only(
+                    ).select_related("user").only(
                         'id', 'user_id', 'organization_id', 'user_name', 'custom_employee_id',
                         'designation', 'job_title', 'gender', 'date_of_joining', 
                         'state', 'city', 'user__email', 'user__is_active'
@@ -451,7 +451,7 @@ class FetchEmployeeAttendanceAPIView(APIView):
             all_records = Attendance.objects.filter(
                 user_id__in=all_employee_ids,
                 attendance_date=attendance_date
-            ).select_related("user", "assign_shift", "user__own_user_profile").only(
+            ).select_related("user", "assign_shift").only(
                 'id', 'user_id', 'attendance_date', 'attendance_status', 'is_late',
                 'check_in_time', 'check_out_time', 'total_working_minutes',
                 'assign_shift_id', 'user__email', 'user__is_active'
@@ -478,7 +478,7 @@ class FetchEmployeeAttendanceAPIView(APIView):
             records = Attendance.objects.filter(
                 user_id__in=list(data.keys()),
                 attendance_date=attendance_date
-            ).select_related("user", "assign_shift", "user__own_user_profile").only(
+            ).select_related("user", "assign_shift").only(
                 'id', 'user_id', 'attendance_date', 'attendance_status', 'is_late',
                 'check_in_time', 'check_out_time', 'total_working_minutes',
                 'assign_shift_id', 'user__email', 'user__is_active'
